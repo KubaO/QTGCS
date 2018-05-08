@@ -1,22 +1,12 @@
-#-------------------------------------------------
-#
-# Project created by QtCreator 2017-03-20T22:43:28
-#
-#-------------------------------------------------
-
-QT       += core gui
-QT       += serialport
-QT       += network
-QT       += network widgets
-
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+QT = widgets serialport network
 
 TARGET = QTGCS
 TEMPLATE = app
 ICON = QTGCS.icns
 
-SOURCES += main.cpp\
-        mainwindow.cpp \
+SOURCES += \
+    main.cpp\
+    mainwindow.cpp \
     map.cpp \
     multiwii.cpp \
     quadstates.cpp \
@@ -51,7 +41,8 @@ SOURCES += main.cpp\
     msp_v1.cpp \
     telemetryserialworker.cpp
 
-HEADERS  += mainwindow.h \
+HEADERS += \
+    mainwindow.h \
     map.h \
     multiwii.h \
     quadstates.h \
@@ -86,7 +77,8 @@ HEADERS  += mainwindow.h \
     msp_v1.h \
     telemetryserialworker.h
 
-FORMS    += mainwindow.ui \
+FORMS += \
+    mainwindow.ui \
     logdialog.ui
 
 QMAKE_MAC_SDK = macosx10.13
