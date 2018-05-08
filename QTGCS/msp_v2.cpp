@@ -39,11 +39,20 @@ QByteArray MSP_V2::processSendPacket(int cmd)
     return output;
 }
 
-QByteArray MSP_V2::processSendPacket(int cmd, Msp_rc_channels raw_rc){}
+QByteArray MSP_V2::processSendPacket(int cmd, Msp_rc_channels raw_rc)
+{
+    return {};
+}
 
-QByteArray MSP_V2::processSendPacket(int cmd, int ind){}
+QByteArray MSP_V2::processSendPacket(int cmd, int ind)
+{
+    return {};
+}
 
-QByteArray MSP_V2::processSendPacket(int cmd, Mission tempMission){}
+QByteArray MSP_V2::processSendPacket(int cmd, Mission tempMission)
+{
+    return {};
+}
 
 uint8_t MSP_V2::crc8_dvb_s2(uint8_t crc, unsigned char a)
 {
