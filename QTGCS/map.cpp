@@ -1,4 +1,5 @@
 #include "map.h"
+#include "utility.h"
 
 Map::Map(double lat, double lon, int level, int width, int height, QObject *parent) :
     QObject(parent)
@@ -31,20 +32,6 @@ Map::Map(double lat, double lon, int level, int width, int height, QObject *pare
     initPath();
     _init_tile_index();
     loadImage();
-}
-
-QByteArray readJsonFile(const QString &filename)
-{
-    QFile f(filename);
-    if (!f.open(QFile::ReadOnly | QFile::Text)) {
-        f.close();
-        return QString().toUtf8();
-    } else {
-        QTextStream in(&f);
-        QByteArray retValue = in.readAll().toUtf8();
-        f.close();
-        return retValue;
-    }
 }
 
 void Map::initPath()
@@ -182,12 +169,10 @@ void Map::_downloadTile(TileIndex tempTileIndex)
     QString outputStr = strLat+" "+strLon+" "+strZoomLevel+" "+_maptype+" "+strX+" "+strY + "\n";
 
     QFile file(cacheIndex);
-    if (!file.open(QIODevice::Append | QIODevice::Text))
-    {;}
-
-    QTextStream out(&file);
-    out << outputStr;
-    file.close();
+    if (file.open(QIODevice::Append | QIODevice::Text)) {
+        QTextStream out(&file);
+        out << outputStr;
+    }
 }
 
 // Download map images from google static map with the api.
@@ -500,34 +485,24 @@ StitchTileInfo Map::_findImages(QList<CacheAreaInfo> areaList)
 
 StitchTileInfo Map::_findLocalImage()
 {
-    QList<CacheAreaInfo> localAreas;
-    try
-    {
-        QFile file(cacheIndex);
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-        {
-            ;
-        }
-        QTextStream in(&file);
-        QString line = in.readLine();
-        while (!line.isNull())
-        {
-            CacheAreaInfo tempCacheAreaInfo;
-            tempCacheAreaInfo.lat = line.split(" ").at(0).toDouble();
-            tempCacheAreaInfo.lon = line.split(" ").at(1).toDouble();
-            tempCacheAreaInfo.zoomlevel = line.split(" ").at(2).toInt();
-            tempCacheAreaInfo.type = line.split(" ").at(3);
-            tempCacheAreaInfo.indexX = line.split(" ").at(4).toInt();
-            tempCacheAreaInfo.indexY = line.split(" ").at(5).toInt();
-            localAreas.append(tempCacheAreaInfo);
-            // read next line
-            line = in.readLine();
-        }
-        file.close();
-    }
-    catch (...)
+    QFile file(cacheIndex);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
     {
         qDebug() << "No local image";
+        return {};
+    }
+    QList<CacheAreaInfo> localAreas;
+    QTextStream in(&file);
+    for (QString line = in.readLine(); !line.isNull();)
+    {
+        CacheAreaInfo tempCacheAreaInfo;
+        tempCacheAreaInfo.lat = line.split(" ").at(0).toDouble();
+        tempCacheAreaInfo.lon = line.split(" ").at(1).toDouble();
+        tempCacheAreaInfo.zoomlevel = line.split(" ").at(2).toInt();
+        tempCacheAreaInfo.type = line.split(" ").at(3);
+        tempCacheAreaInfo.indexX = line.split(" ").at(4).toInt();
+        tempCacheAreaInfo.indexY = line.split(" ").at(5).toInt();
+        localAreas.append(tempCacheAreaInfo);
     }
     StitchTileInfo tempStitchTileInfo;
     tempStitchTileInfo = _findImages(localAreas);

@@ -369,10 +369,6 @@ void DataExchange::set_rcSerialOn(bool value)
         else if (rcSerialOn == false)
         {
             set_rcSerialPortName("");
-            if (rcSerial->isOpen())
-            {
-                rcSerial->close();
-            }
             delete rcSerial;
         }
         emit rcSerialOnChanged(rcSerialOn);
@@ -652,10 +648,6 @@ void SerialWorker::doWork()
         }
     }
     serial->flush();
-    if(serial->isOpen())
-    {
-        serial->close();
-    }
 
     delete serial;
     // Set _working to false, meaning the process can't be aborted anymore.
@@ -1272,10 +1264,6 @@ void LocalServerWorker::set_auxSerialOn(bool value)
     {
         // To do: implement another part to change the manual mode to 0
         //    when the aux serial port is closed.
-        if (serial->isOpen())
-        {
-            serial->close();
-        }
         delete serial;
 
         // Do not emit finished() signal, otherwise the thread will not able to restart again.
@@ -1314,11 +1302,7 @@ void LocalServerWorker::set_manualMode(int value)
         serialReady = false;
         if (_manualMode == 0)
         {
-            /*if (serial->isOpen())
-            {
-                serial->close();
-            }
-            delete rc_xbee_at;*/
+            if (false) delete rc_xbee_at; //TODO
         }
     }
 }

@@ -5,6 +5,7 @@
 #include "multiwii.h"
 #include "quadstates.h"
 #include "dataexchange.h"
+#include "utility.h"
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -49,19 +50,6 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-QByteArray MainWindow::readJsonFile(const QString &filename)
-{
-    QFile f(filename);
-    if (!f.open(QFile::ReadOnly | QFile::Text)) {
-        f.close();
-        return QString().toUtf8();
-    } else {
-        QTextStream in(&f);
-        QByteArray retValue = in.readAll().toUtf8();
-        f.close();
-        return retValue;
-    }
-}
 
 void MainWindow::logMessage(LogMessage tempMessage /*QString tempStr*/)
 {
@@ -132,12 +120,10 @@ void MainWindow::logData(QList<QuadStates *> *tempObjList)
             outputStr = outputStr + "\n";
 
             QFile file(logFilePath);
-            if (!file.open(QIODevice::Append | QIODevice::Text))
-            {;}
-
-            QTextStream out(&file);
-            out << outputStr;
-            file.close();
+            if (file.open(QIODevice::Append | QIODevice::Text)) {
+                QTextStream out(&file);
+                out << outputStr;
+            }
         }
     }
 }
@@ -2639,80 +2625,69 @@ void MainWindow::Quad1ClearWP() {}
 void MainWindow::Quad1SaveWP()
 {
     QString fileName = QFileDialog::getSaveFileName(this, "Save Waypoints to File", "", "Waypoints files (*.wps);;Text files (*.txt)");
-    if (fileName.length() > 0)
+    if (fileName.isEmpty())
+        return;
+    qDebug() << fileName;
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
     {
-        //qDebug() << fileName;
-        QFile file(fileName);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-        {
-            //qDebug() << "Cannot open file";
-            // Send log info to main GUI
-            LogMessage tempLogMessage;
-            tempLogMessage.id = QString("Quad1 Mission Save");
-            tempLogMessage.message = QString("Cannot open file.");
-            logMessage(tempLogMessage);
-            //
-        }
+        //qDebug() << "Cannot open file";
+        // Send log info to main GUI
+        LogMessage tempLogMessage;
+        tempLogMessage.id = QString("Quad1 Mission Save");
+        tempLogMessage.message = QString("Cannot open file.");
+        logMessage(tempLogMessage);
+        return;
+    }
 
-        QTextStream out(&file);
-        foreach (WP tempWP, deHandle->wp_list[0].wps) {
-            QString outputStr = "";
-            outputStr = outputStr + QString::number(tempWP.wp_no, 10) + ",";
-            outputStr = outputStr + tempWP.wp_action + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_lat, 'f', 7) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_lon, 'f', 7) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_alt, 'f', 2) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p1, 10) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p2, 10) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p3, 10) + "\n";
-            out << outputStr;
-        }
-        file.close();
+    QTextStream out(&file);
+    foreach (WP tempWP, deHandle->wp_list[0].wps) {
+        QString outputStr = "";
+        outputStr = outputStr + QString::number(tempWP.wp_no, 10) + ",";
+        outputStr = outputStr + tempWP.wp_action + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_lat, 'f', 7) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_lon, 'f', 7) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_alt, 'f', 2) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p1, 10) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p2, 10) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p3, 10) + "\n";
+        out << outputStr;
     }
 }
 
 void MainWindow::Quad1LoadWP()
 {
     QString fileName = QFileDialog::getOpenFileName(this, "Choose Waypoint File", "", "Waypoints files (*.wps);;Text files (*.txt)");
-    if (fileName.length() > 0)
+    QString inputStr = readTextFile(fileName);
+    if (inputStr.isNull())
     {
-        //qDebug() << fileName;
-        QFile file(fileName);
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-        {
-            //qDebug() << "Cannot open file";
-            // Send log info to main GUI
-            LogMessage tempLogMessage;
-            tempLogMessage.id = QString("Quad1 Mission Load");
-            tempLogMessage.message = QString("Cannot open file.");
-            logMessage(tempLogMessage);
-            //
-        }
-        QString inputStr;
-        QTextStream in(&file);
-        inputStr = in.readAll();
-        file.close();
-        QStringList tempSL = inputStr.split('\n');
-        QList<WP> wps;
-        foreach (QString tempStr, tempSL) {
-            if (tempStr.length() > 0)
-            {
-                QStringList fields = tempStr.split(',');
-                WP tempWP;
-                tempWP.wp_no = fields.at(0).toUInt();
-                tempWP.wp_action = fields.at(1);
-                tempWP.wp_lat = fields.at(2).toDouble();
-                tempWP.wp_lon = fields.at(3).toDouble();
-                tempWP.wp_alt = fields.at(4).toFloat();
-                tempWP.wp_p1 = fields.at(5).toInt();
-                tempWP.wp_p2 = fields.at(6).toInt();
-                tempWP.wp_p3 = fields.at(7).toInt();
-                wps.append(tempWP);
-            }
-        }
-        deHandle->wp_list[0].wps = wps;
-        emit updateQuad1TableViewRequest();
+        // Send log info to main GUI
+        LogMessage tempLogMessage;
+        tempLogMessage.id = QString("Quad1 Mission Load");
+        tempLogMessage.message = QString("Cannot open file.");
+        logMessage(tempLogMessage);
+        return;
     }
+    QStringList tempSL = inputStr.split('\n');
+    QList<WP> wps;
+    foreach (QString tempStr, tempSL) {
+        if (tempStr.length() > 0)
+        {
+            QStringList fields = tempStr.split(',');
+            WP tempWP;
+            tempWP.wp_no = fields.at(0).toUInt();
+            tempWP.wp_action = fields.at(1);
+            tempWP.wp_lat = fields.at(2).toDouble();
+            tempWP.wp_lon = fields.at(3).toDouble();
+            tempWP.wp_alt = fields.at(4).toFloat();
+            tempWP.wp_p1 = fields.at(5).toInt();
+            tempWP.wp_p2 = fields.at(6).toInt();
+            tempWP.wp_p3 = fields.at(7).toInt();
+            wps.append(tempWP);
+        }
+    }
+    deHandle->wp_list[0].wps = wps;
+    emit updateQuad1TableViewRequest();
 }
 
 void MainWindow::updateQuad1TableView()
@@ -2804,67 +2779,56 @@ void MainWindow::on_quad1DownloadButton_clicked()
 void MainWindow::on_quad1LoadButton_clicked()
 {
     QString fileName = QFileDialog::getOpenFileName(this, "Choose Waypoint File", "", "Waypoints files (*.wps);;Text files (*.txt)");
-    if (fileName.length() > 0)
-    {
-        qDebug() << fileName;
-        QFile file(fileName);
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    QString inputStr = readTextFile(fileName);
+    if (inputStr.isNull())
+        return;
+    QStringList tempSL = inputStr.split('\n');
+    QList<WP> wps;
+    foreach (QString tempStr, tempSL) {
+        if (tempStr.length() > 0)
         {
-            qDebug() << "Cannot open file";
+            QStringList fields = tempStr.split(',');
+            WP tempWP;
+            tempWP.wp_no = fields.at(0).toUInt();
+            tempWP.wp_action = fields.at(1);
+            tempWP.wp_lat = fields.at(2).toDouble();
+            tempWP.wp_lon = fields.at(3).toDouble();
+            tempWP.wp_alt = fields.at(4).toFloat();
+            tempWP.wp_p1 = fields.at(5).toInt();
+            tempWP.wp_p2 = fields.at(6).toInt();
+            tempWP.wp_p3 = fields.at(7).toInt();
+            wps.append(tempWP);
         }
-        QString inputStr;
-        QTextStream in(&file);
-        inputStr = in.readAll();
-        file.close();
-        QStringList tempSL = inputStr.split('\n');
-        QList<WP> wps;
-        foreach (QString tempStr, tempSL) {
-            if (tempStr.length() > 0)
-            {
-                QStringList fields = tempStr.split(',');
-                WP tempWP;
-                tempWP.wp_no = fields.at(0).toUInt();
-                tempWP.wp_action = fields.at(1);
-                tempWP.wp_lat = fields.at(2).toDouble();
-                tempWP.wp_lon = fields.at(3).toDouble();
-                tempWP.wp_alt = fields.at(4).toFloat();
-                tempWP.wp_p1 = fields.at(5).toInt();
-                tempWP.wp_p2 = fields.at(6).toInt();
-                tempWP.wp_p3 = fields.at(7).toInt();
-                wps.append(tempWP);
-            }
-        }
-        deHandle->wp_list[0].wps = wps;
-        emit updateQuad1TableViewRequest();
     }
+    deHandle->wp_list[0].wps = wps;
+    emit updateQuad1TableViewRequest();
 }
 
 void MainWindow::on_quad1SaveButton_clicked()
 {
     QString fileName = QFileDialog::getSaveFileName(this, "Save Waypoints to File", "", "Waypoints files (*.wps);;Text files (*.txt)");
-    if (fileName.length() > 0)
+    if (fileName.isEmpty())
+        return;
+    qDebug() << fileName;
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
     {
-        qDebug() << fileName;
-        QFile file(fileName);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-        {
-            qDebug() << "Cannot open file";
-        }
+        qDebug() << "Cannot open file";
+        return;
+    }
 
-        QTextStream out(&file);
-        foreach (WP tempWP, deHandle->wp_list[0].wps) {
-            QString outputStr = "";
-            outputStr = outputStr + QString::number(tempWP.wp_no, 10) + ",";
-            outputStr = outputStr + tempWP.wp_action + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_lat, 'f', 7) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_lon, 'f', 7) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_alt, 'f', 2) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p1, 10) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p2, 10) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p3, 10) + "\n";
-            out << outputStr;
-        }
-        file.close();
+    QTextStream out(&file);
+    foreach (WP tempWP, deHandle->wp_list[0].wps) {
+        QString outputStr = "";
+        outputStr = outputStr + QString::number(tempWP.wp_no, 10) + ",";
+        outputStr = outputStr + tempWP.wp_action + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_lat, 'f', 7) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_lon, 'f', 7) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_alt, 'f', 2) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p1, 10) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p2, 10) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p3, 10) + "\n";
+        out << outputStr;
     }
 }
 
@@ -3054,68 +3018,56 @@ void MainWindow::Quad2ClearWP() {}
 void MainWindow::Quad2SaveWP()
 {
     QString fileName = QFileDialog::getSaveFileName(this, "Save Waypoints to File", "", "Waypoints files (*.wps);;Text files (*.txt)");
-    if (fileName.length() > 0)
+    if (fileName.isEmpty())
+        return;
+    qDebug() << fileName;
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
     {
-        qDebug() << fileName;
-        QFile file(fileName);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-        {
-            qDebug() << "Cannot open file";
-        }
-
-        QTextStream out(&file);
-        foreach (WP tempWP, deHandle->wp_list[1].wps) {
-            QString outputStr = "";
-            outputStr = outputStr + QString::number(tempWP.wp_no, 10) + ",";
-            outputStr = outputStr + tempWP.wp_action + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_lat, 'f', 7) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_lon, 'f', 7) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_alt, 'f', 2) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p1, 10) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p2, 10) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p3, 10) + "\n";
-            out << outputStr;
-        }
-        file.close();
+        qDebug() << "Cannot open file";
+        return;
+    }
+    QTextStream out(&file);
+    foreach (WP tempWP, deHandle->wp_list[1].wps) {
+        QString outputStr = "";
+        outputStr = outputStr + QString::number(tempWP.wp_no, 10) + ",";
+        outputStr = outputStr + tempWP.wp_action + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_lat, 'f', 7) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_lon, 'f', 7) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_alt, 'f', 2) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p1, 10) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p2, 10) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p3, 10) + "\n";
+        out << outputStr;
     }
 }
 
 void MainWindow::Quad2LoadWP()
 {
     QString fileName = QFileDialog::getOpenFileName(this, "Choose Waypoint File", "", "Waypoints files (*.wps);;Text files (*.txt)");
-    if (fileName.length() > 0)
-    {
-        qDebug() << fileName;
-        QFile file(fileName);
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    QString inputStr = readTextFile(fileName);
+    if (inputStr.isNull())
+        return;
+    QStringList tempSL = inputStr.split('\n');
+    QList<WP> wps;
+    foreach (QString tempStr, tempSL) {
+        if (tempStr.length() > 0)
         {
-            qDebug() << "Cannot open file";
+            QStringList fields = tempStr.split(',');
+            WP tempWP;
+            tempWP.wp_no = fields.at(0).toUInt();
+            tempWP.wp_action = fields.at(1);
+            tempWP.wp_lat = fields.at(2).toDouble();
+            tempWP.wp_lon = fields.at(3).toDouble();
+            tempWP.wp_alt = fields.at(4).toFloat();
+            tempWP.wp_p1 = fields.at(5).toInt();
+            tempWP.wp_p2 = fields.at(6).toInt();
+            tempWP.wp_p3 = fields.at(7).toInt();
+            wps.append(tempWP);
         }
-        QString inputStr;
-        QTextStream in(&file);
-        inputStr = in.readAll();
-        file.close();
-        QStringList tempSL = inputStr.split('\n');
-        QList<WP> wps;
-        foreach (QString tempStr, tempSL) {
-            if (tempStr.length() > 0)
-            {
-                QStringList fields = tempStr.split(',');
-                WP tempWP;
-                tempWP.wp_no = fields.at(0).toUInt();
-                tempWP.wp_action = fields.at(1);
-                tempWP.wp_lat = fields.at(2).toDouble();
-                tempWP.wp_lon = fields.at(3).toDouble();
-                tempWP.wp_alt = fields.at(4).toFloat();
-                tempWP.wp_p1 = fields.at(5).toInt();
-                tempWP.wp_p2 = fields.at(6).toInt();
-                tempWP.wp_p3 = fields.at(7).toInt();
-                wps.append(tempWP);
-            }
-        }
-        deHandle->wp_list[1].wps = wps;
-        emit updateQuad2TableViewRequest();
     }
+    deHandle->wp_list[1].wps = wps;
+    emit updateQuad2TableViewRequest();
 }
 
 void MainWindow::updateQuad2TableView()
@@ -3207,67 +3159,55 @@ void MainWindow::on_quad2DownloadButton_clicked()
 void MainWindow::on_quad2LoadButton_clicked()
 {
     QString fileName = QFileDialog::getOpenFileName(this, "Choose Waypoint File", "", "Waypoints files (*.wps);;Text files (*.txt)");
-    if (fileName.length() > 0)
-    {
-        qDebug() << fileName;
-        QFile file(fileName);
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    QString inputStr = readTextFile(fileName);
+    if (inputStr.isNull())
+        return;
+    QStringList tempSL = inputStr.split('\n');
+    QList<WP> wps;
+    foreach (QString tempStr, tempSL) {
+        if (tempStr.length() > 0)
         {
-            qDebug() << "Cannot open file";
+            QStringList fields = tempStr.split(',');
+            WP tempWP;
+            tempWP.wp_no = fields.at(0).toUInt();
+            tempWP.wp_action = fields.at(1);
+            tempWP.wp_lat = fields.at(2).toDouble();
+            tempWP.wp_lon = fields.at(3).toDouble();
+            tempWP.wp_alt = fields.at(4).toFloat();
+            tempWP.wp_p1 = fields.at(5).toInt();
+            tempWP.wp_p2 = fields.at(6).toInt();
+            tempWP.wp_p3 = fields.at(7).toInt();
+            wps.append(tempWP);
         }
-        QString inputStr;
-        QTextStream in(&file);
-        inputStr = in.readAll();
-        file.close();
-        QStringList tempSL = inputStr.split('\n');
-        QList<WP> wps;
-        foreach (QString tempStr, tempSL) {
-            if (tempStr.length() > 0)
-            {
-                QStringList fields = tempStr.split(',');
-                WP tempWP;
-                tempWP.wp_no = fields.at(0).toUInt();
-                tempWP.wp_action = fields.at(1);
-                tempWP.wp_lat = fields.at(2).toDouble();
-                tempWP.wp_lon = fields.at(3).toDouble();
-                tempWP.wp_alt = fields.at(4).toFloat();
-                tempWP.wp_p1 = fields.at(5).toInt();
-                tempWP.wp_p2 = fields.at(6).toInt();
-                tempWP.wp_p3 = fields.at(7).toInt();
-                wps.append(tempWP);
-            }
-        }
-        deHandle->wp_list[1].wps = wps;
-        emit updateQuad2TableViewRequest();
     }
+    deHandle->wp_list[1].wps = wps;
+    emit updateQuad2TableViewRequest();
 }
 
 void MainWindow::on_quad2SaveButton_clicked()
 {
     QString fileName = QFileDialog::getSaveFileName(this, "Save Waypoints to File", "", "Waypoints files (*.wps);;Text files (*.txt)");
-    if (fileName.length() > 0)
+    if (fileName.isEmpty())
+        return;
+    qDebug() << fileName;
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
     {
-        qDebug() << fileName;
-        QFile file(fileName);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-        {
-            qDebug() << "Cannot open file";
-        }
-
-        QTextStream out(&file);
-        foreach (WP tempWP, deHandle->wp_list[1].wps) {
-            QString outputStr = "";
-            outputStr = outputStr + QString::number(tempWP.wp_no, 10) + ",";
-            outputStr = outputStr + tempWP.wp_action + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_lat, 'f', 7) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_lon, 'f', 7) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_alt, 'f', 2) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p1, 10) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p2, 10) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p3, 10) + "\n";
-            out << outputStr;
-        }
-        file.close();
+        qDebug() << "Cannot open file";
+        return;
+    }
+    QTextStream out(&file);
+    foreach (WP tempWP, deHandle->wp_list[1].wps) {
+        QString outputStr = "";
+        outputStr = outputStr + QString::number(tempWP.wp_no, 10) + ",";
+        outputStr = outputStr + tempWP.wp_action + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_lat, 'f', 7) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_lon, 'f', 7) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_alt, 'f', 2) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p1, 10) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p2, 10) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p3, 10) + "\n";
+        out << outputStr;
     }
 }
 
@@ -3457,68 +3397,57 @@ void MainWindow::Quad3ClearWP() {}
 void MainWindow::Quad3SaveWP()
 {
     QString fileName = QFileDialog::getSaveFileName(this, "Save Waypoints to File", "", "Waypoints files (*.wps);;Text files (*.txt)");
-    if (fileName.length() > 0)
+    if (fileName.isEmpty())
+        return;
+    qDebug() << fileName;
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
     {
-        qDebug() << fileName;
-        QFile file(fileName);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-        {
-            qDebug() << "Cannot open file";
-        }
+        qDebug() << "Cannot open file";
+        return;
+    }
 
-        QTextStream out(&file);
-        foreach (WP tempWP, deHandle->wp_list[2].wps) {
-            QString outputStr = "";
-            outputStr = outputStr + QString::number(tempWP.wp_no, 10) + ",";
-            outputStr = outputStr + tempWP.wp_action + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_lat, 'f', 7) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_lon, 'f', 7) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_alt, 'f', 2) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p1, 10) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p2, 10) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p3, 10) + "\n";
-            out << outputStr;
-        }
-        file.close();
+    QTextStream out(&file);
+    foreach (WP tempWP, deHandle->wp_list[2].wps) {
+        QString outputStr = "";
+        outputStr = outputStr + QString::number(tempWP.wp_no, 10) + ",";
+        outputStr = outputStr + tempWP.wp_action + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_lat, 'f', 7) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_lon, 'f', 7) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_alt, 'f', 2) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p1, 10) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p2, 10) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p3, 10) + "\n";
+        out << outputStr;
     }
 }
 
 void MainWindow::Quad3LoadWP()
 {
     QString fileName = QFileDialog::getOpenFileName(this, "Choose Waypoint File", "", "Waypoints files (*.wps);;Text files (*.txt)");
-    if (fileName.length() > 0)
-    {
-        qDebug() << fileName;
-        QFile file(fileName);
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    QString inputStr = readTextFile(fileName);
+    if (inputStr.isNull())
+        return;
+    QStringList tempSL = inputStr.split('\n');
+    QList<WP> wps;
+    foreach (QString tempStr, tempSL) {
+        if (tempStr.length() > 0)
         {
-            qDebug() << "Cannot open file";
+            QStringList fields = tempStr.split(',');
+            WP tempWP;
+            tempWP.wp_no = fields.at(0).toUInt();
+            tempWP.wp_action = fields.at(1);
+            tempWP.wp_lat = fields.at(2).toDouble();
+            tempWP.wp_lon = fields.at(3).toDouble();
+            tempWP.wp_alt = fields.at(4).toFloat();
+            tempWP.wp_p1 = fields.at(5).toInt();
+            tempWP.wp_p2 = fields.at(6).toInt();
+            tempWP.wp_p3 = fields.at(7).toInt();
+            wps.append(tempWP);
         }
-        QString inputStr;
-        QTextStream in(&file);
-        inputStr = in.readAll();
-        file.close();
-        QStringList tempSL = inputStr.split('\n');
-        QList<WP> wps;
-        foreach (QString tempStr, tempSL) {
-            if (tempStr.length() > 0)
-            {
-                QStringList fields = tempStr.split(',');
-                WP tempWP;
-                tempWP.wp_no = fields.at(0).toUInt();
-                tempWP.wp_action = fields.at(1);
-                tempWP.wp_lat = fields.at(2).toDouble();
-                tempWP.wp_lon = fields.at(3).toDouble();
-                tempWP.wp_alt = fields.at(4).toFloat();
-                tempWP.wp_p1 = fields.at(5).toInt();
-                tempWP.wp_p2 = fields.at(6).toInt();
-                tempWP.wp_p3 = fields.at(7).toInt();
-                wps.append(tempWP);
-            }
-        }
-        deHandle->wp_list[2].wps = wps;
-        emit updateQuad3TableViewRequest();
     }
+    deHandle->wp_list[2].wps = wps;
+    emit updateQuad3TableViewRequest();
 }
 
 void MainWindow::updateQuad3TableView()
@@ -3610,67 +3539,55 @@ void MainWindow::on_quad3DownloadButton_clicked()
 void MainWindow::on_quad3LoadButton_clicked()
 {
     QString fileName = QFileDialog::getOpenFileName(this, "Choose Waypoint File", "", "Waypoints files (*.wps);;Text files (*.txt)");
-    if (fileName.length() > 0)
-    {
-        qDebug() << fileName;
-        QFile file(fileName);
-        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    QString inputStr = readTextFile(fileName);
+    if (inputStr.isEmpty())
+        return;
+    QStringList tempSL = inputStr.split('\n');
+    QList<WP> wps;
+    foreach (QString tempStr, tempSL) {
+        if (tempStr.length() > 0)
         {
-            qDebug() << "Cannot open file";
+            QStringList fields = tempStr.split(',');
+            WP tempWP;
+            tempWP.wp_no = fields.at(0).toUInt();
+            tempWP.wp_action = fields.at(1);
+            tempWP.wp_lat = fields.at(2).toDouble();
+            tempWP.wp_lon = fields.at(3).toDouble();
+            tempWP.wp_alt = fields.at(4).toFloat();
+            tempWP.wp_p1 = fields.at(5).toInt();
+            tempWP.wp_p2 = fields.at(6).toInt();
+            tempWP.wp_p3 = fields.at(7).toInt();
+            wps.append(tempWP);
         }
-        QString inputStr;
-        QTextStream in(&file);
-        inputStr = in.readAll();
-        file.close();
-        QStringList tempSL = inputStr.split('\n');
-        QList<WP> wps;
-        foreach (QString tempStr, tempSL) {
-            if (tempStr.length() > 0)
-            {
-                QStringList fields = tempStr.split(',');
-                WP tempWP;
-                tempWP.wp_no = fields.at(0).toUInt();
-                tempWP.wp_action = fields.at(1);
-                tempWP.wp_lat = fields.at(2).toDouble();
-                tempWP.wp_lon = fields.at(3).toDouble();
-                tempWP.wp_alt = fields.at(4).toFloat();
-                tempWP.wp_p1 = fields.at(5).toInt();
-                tempWP.wp_p2 = fields.at(6).toInt();
-                tempWP.wp_p3 = fields.at(7).toInt();
-                wps.append(tempWP);
-            }
-        }
-        deHandle->wp_list[2].wps = wps;
-        emit updateQuad3TableViewRequest();
     }
+    deHandle->wp_list[2].wps = wps;
+    emit updateQuad3TableViewRequest();
 }
 
 void MainWindow::on_quad3SaveButton_clicked()
 {
     QString fileName = QFileDialog::getSaveFileName(this, "Save Waypoints to File", "", "Waypoints files (*.wps);;Text files (*.txt)");
-    if (fileName.length() > 0)
+    if (fileName.isEmpty())
+        return;
+    qDebug() << fileName;
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
     {
-        qDebug() << fileName;
-        QFile file(fileName);
-        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-        {
-            qDebug() << "Cannot open file";
-        }
-
-        QTextStream out(&file);
-        foreach (WP tempWP, deHandle->wp_list[2].wps) {
-            QString outputStr = "";
-            outputStr = outputStr + QString::number(tempWP.wp_no, 10) + ",";
-            outputStr = outputStr + tempWP.wp_action + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_lat, 'f', 7) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_lon, 'f', 7) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_alt, 'f', 2) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p1, 10) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p2, 10) + ",";
-            outputStr = outputStr + QString::number(tempWP.wp_p3, 10) + "\n";
-            out << outputStr;
-        }
-        file.close();
+        qDebug() << "Cannot open file";
+        return;
+    }
+    QTextStream out(&file);
+    foreach (WP tempWP, deHandle->wp_list[2].wps) {
+        QString outputStr = "";
+        outputStr = outputStr + QString::number(tempWP.wp_no, 10) + ",";
+        outputStr = outputStr + tempWP.wp_action + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_lat, 'f', 7) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_lon, 'f', 7) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_alt, 'f', 2) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p1, 10) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p2, 10) + ",";
+        outputStr = outputStr + QString::number(tempWP.wp_p3, 10) + "\n";
+        out << outputStr;
     }
 }
 

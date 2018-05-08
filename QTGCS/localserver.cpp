@@ -28,13 +28,7 @@ LocalServer::LocalServer(QObject *parent) :
     }
 }
 
-LocalServer::~LocalServer()
-{
-    foreach (QTcpSocket *tempSocket, socketList) {
-        tempSocket->close();
-    }
-    delete server;
-}
+LocalServer::~LocalServer() {}
 
 void LocalServer::newConnection()
 {

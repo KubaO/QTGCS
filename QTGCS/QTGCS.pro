@@ -39,7 +39,8 @@ SOURCES += \
     logmessage.cpp \
     msp_v2.cpp \
     msp_v1.cpp \
-    telemetryserialworker.cpp
+    telemetryserialworker.cpp \
+    utility.cpp
 
 HEADERS += \
     mainwindow.h \
@@ -75,7 +76,8 @@ HEADERS += \
     logmessage.h \
     msp_v2.h \
     msp_v1.h \
-    telemetryserialworker.h
+    telemetryserialworker.h \
+    utility.h
 
 FORMS += \
     mainwindow.ui \

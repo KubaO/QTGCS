@@ -26,13 +26,12 @@ SerialCommunication_XBEE_API::SerialCommunication_XBEE_API(QSerialPort *ser, QLi
 
 SerialCommunication_XBEE_API::~SerialCommunication_XBEE_API()
 {
-    /*
-    if(serial->isOpen())
-    {
-        serial->close();
-        qDebug() << "XBEE API: Serial Port closed successfully";
-    }
-    */
+    if(false)
+        if(serial->isOpen())
+        {
+            serial->close();
+            qDebug() << "XBEE API: Serial Port closed successfully";
+        }
 }
 
 void SerialCommunication_XBEE_API::send(int objInd, QByteArray data)

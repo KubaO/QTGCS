@@ -41,7 +41,6 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
-    QByteArray readJsonFile(const QString &filename);
     void InitMap();
     void InitOverviewPage();
     void InitQuad1Page();
