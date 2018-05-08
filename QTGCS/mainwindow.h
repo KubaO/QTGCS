@@ -20,7 +20,6 @@
 #include <QDesktopWidget>
 #include <QScrollBar>
 
-#include <curl/curl.h>
 #include <map.h>
 #include "multiwii.h"
 #include "inputdialog.h"
